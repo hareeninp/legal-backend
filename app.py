@@ -1,6 +1,10 @@
 from fastapi import FastAPI
+from pydantic import BaseModel
 
 app = FastAPI()
+
+class TextInput(BaseModel):
+    text: str
 
 @app.get("/")
 def root():
@@ -10,3 +14,9 @@ def root():
 def health():
     return {"status": "ok"}
 
+@app.post("/analyze")
+def analyze(data: TextInput):
+    return {
+        "summary": "This is a demo response",
+        "risk_level": "Medium"
+    }
