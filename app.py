@@ -794,7 +794,7 @@ def generate_markdown_report(analysis: dict, questions: list, contract_name: str
 ## 📊 Key Terms Analysis
 
 ### ✅ Favorable Terms
-"""
+
     
     for term in analysis.get('key_terms', {}).get('favorable', []):
         report += f"- {term}\n"
