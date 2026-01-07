@@ -3,8 +3,9 @@ uvicorn
 python-dotenv
 requests
 
-# Google Gemini
-google-generativeai
+
+# Gemini (NEW SDK)
+google-genai
 
 # PDF handling
 PyPDF2
