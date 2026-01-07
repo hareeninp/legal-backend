@@ -110,7 +110,7 @@ app = FastAPI(
 app.add_middleware(
     CORSMiddleware,
     allow_origins=[
-        "https://signature-gap-frontend-bhtzcmog5-nehas-projects-f3c149cb.vercel.app/",
+        "https://signature-gap-frontend-e9gvoko95-nehas-projects-f3c149cb.vercel.app/",
         "http://localhost:3000",
     ],
     allow_credentials=True,
@@ -1941,3 +1941,18 @@ async def shutdown_event():
     
     logger.info("👋 Legal Contract Intelligence API shutdown complete")
 
+# ====================== MAIN ENTRY POINT ======================
+if __name__ == "__main__":
+    import uvicorn
+    
+    port = int(os.getenv("PORT", 8000))
+    host = os.getenv("HOST", "0.0.0.0")
+    debug = os.getenv("DEBUG", "false").lower() == "true"
+    
+    uvicorn.run(
+        "main:app",
+        host=host,
+        port=port,
+        reload=debug,
+        log_level="info"
+    )
