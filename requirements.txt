@@ -1,5 +1,18 @@
 fastapi
 uvicorn
-requests
 python-dotenv
+requests
+
+# Google Gemini
 google-generativeai
+
+# PDF handling
+PyPDF2
+PyMuPDF
+
+# Google Cloud Vision OCR
+google-cloud-vision
+google-auth
+
+# PDF report generation
+reportlab
