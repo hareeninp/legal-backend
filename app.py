@@ -1941,18 +1941,3 @@ async def shutdown_event():
     
     logger.info("👋 Legal Contract Intelligence API shutdown complete")
 
-# ====================== MAIN ENTRY POINT ======================
-if __name__ == "__main__":
-    import uvicorn
-    
-    port = int(os.getenv("PORT", 8000))
-    host = os.getenv("HOST", "0.0.0.0")
-    debug = os.getenv("DEBUG", "false").lower() == "true"
-    
-    uvicorn.run(
-        "main:app",
-        host=host,
-        port=port,
-        reload=debug,
-        log_level="info"
-    )
