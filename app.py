@@ -1261,7 +1261,7 @@ async def upload_and_analyze(
     """
     Upload PDF and analyze contract with OCR quality assessment
     
-    - **file**: PDF file to upload (max 10MB)
+    - **file**: PDF file to upload 
     - **contract_name**: Optional contract name
     - **user_role**: User's role for analysis
     - **language**: Target language
