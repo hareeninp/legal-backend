@@ -719,11 +719,13 @@ def generate_json_report(analysis: dict, questions: list, contract_name: str) ->
     return json.dumps(report, indent=2, ensure_ascii=False)
 
 def generate_markdown_report(analysis: dict, questions: list, contract_name: str) -> str:
+    """Generate Markdown report"""
     report = f"""# Legal Contract Analysis Report
 
 **Contract Name:** {contract_name}  
-**Generated At:** {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}  
+**Analysis Date:** {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}  
 **Contract Type:** {analysis.get('contract_type', 'Unknown')}
+
 
 ---
 
