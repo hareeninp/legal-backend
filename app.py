@@ -1304,15 +1304,17 @@ async def upload_and_analyze(
     background_tasks: BackgroundTasks = None
 ):
     """
-    Upload PDF and analyze contract with OCR quality assessment
-    
-    - **file**: PDF file to upload (max 10MB)
-    - **contract_name**: Optional contract name
-    - **user_role**: User's role for analysis
-    - **language**: Target language
-    - **generate_audio**: Generate audio summary
-    - **force_reupload**: Force analysis even with low OCR quality
-    """
+Upload PDF and analyze contract with OCR quality assessment.
+
+Parameters:
+file: PDF file to upload (max 10 MB)
+contract_name: Optional contract name
+user_role: User role for analysis
+language: Target language
+generate_audio: Generate audio summary
+force_reupload: Force analysis even with low OCR quality
+"""
+
     try:
         # Validate file type
         if not file.filename.lower().endswith('.pdf'):
