@@ -184,7 +184,6 @@ class OCRResult(BaseModel):
     word_count: int
 
 class DocumentClarityCheckResponse(BaseModel):
-    """Response model for document clarity check"""
     success: bool
     is_clear: bool
     confidence: float
@@ -214,12 +213,12 @@ audio_cache: Dict[str, str] = {}
 
 # ====================== UTILITY FUNCTIONS ======================
 def generate_analysis_id(text: str, contract_name: str) -> str:
-    """Generate unique analysis ID"""
+ 
     content = f"{text[:100]}{contract_name}{datetime.now().isoformat()}"
     return hashlib.md5(content.encode()).hexdigest()[:16]
 
 def mask_sensitive_data(text: str) -> str:
-    """Mask PII data using regex patterns"""
+    
     patterns = [
         (r"\b\d{10}\b", "[PHONE]"),
         (r"\+91[\s-]?\d{10}", "[PHONE]"),
@@ -237,7 +236,7 @@ def mask_sensitive_data(text: str) -> str:
     return text
 
 def clean_json_response(text: str) -> str:
-    """Clean JSON response from Gemini"""
+  
     text = text.strip()
     if text.startswith("```json"):
         text = text[7:]
@@ -248,7 +247,7 @@ def clean_json_response(text: str) -> str:
     return text.strip()
 
 def assess_ocr_quality(confidence: float) -> Tuple[OCRQuality, bool, str]:
-    """Assess OCR quality and determine if reupload is needed"""
+   
     if confidence >= 0.95:
         return OCRQuality.EXCELLENT, False, "Excellent text extraction quality - document is clear and readable"
     elif confidence >= 0.85:
@@ -261,7 +260,7 @@ def assess_ocr_quality(confidence: float) -> Tuple[OCRQuality, bool, str]:
         return OCRQuality.FAILED, True, "Text extraction failed. Document is not clear enough - please upload a better quality document"
 
 def generate_clarity_suggestions(confidence: float, word_count: int, page_count: int) -> List[str]:
-    """Generate specific suggestions for improving document clarity"""
+   
     suggestions = []
     
     if confidence < OCR_CONFIDENCE_THRESHOLD:
@@ -282,7 +281,7 @@ def generate_clarity_suggestions(confidence: float, word_count: int, page_count:
 
 # ====================== OCR FUNCTIONS ======================
 def extract_text_with_pypdf(file_content: bytes) -> Tuple[str, float]:
-    """Extract text using PyPDF2"""
+
     try:
         pdf_file = io.BytesIO(file_content)
         reader = PdfReader(pdf_file)
@@ -311,7 +310,7 @@ def extract_text_with_pypdf(file_content: bytes) -> Tuple[str, float]:
         return "", 0.0
 
 def extract_text_with_pymupdf(file_content: bytes) -> Tuple[str, float]:
-    """Extract text using PyMuPDF (better quality)"""
+  
     try:
         pdf_document = fitz.open(stream=file_content, filetype="pdf")
         text = ""
@@ -343,7 +342,7 @@ def extract_text_with_pymupdf(file_content: bytes) -> Tuple[str, float]:
         return "", 0.0
 
 def extract_text_with_google_ocr(file_content: bytes) -> Tuple[str, float]:
-    """Extract text using Google Cloud Vision OCR"""
+   
     if not vision_client:
         logger.warning("Google Cloud Vision not configured, falling back to PyMuPDF")
         return extract_text_with_pymupdf(file_content)
@@ -396,9 +395,7 @@ def extract_text_with_google_ocr(file_content: bytes) -> Tuple[str, float]:
         return extract_text_with_pymupdf(file_content)
 
 def extract_text_from_pdf(file_content: bytes, use_ocr: bool = True) -> OCRResult:
-    """
-    Extract text from PDF with quality assessment
-    """
+    
     try:
         # Try PyMuPDF first (fastest)
         text, confidence = extract_text_with_pymupdf(file_content)
@@ -459,11 +456,6 @@ def extract_text_from_pdf(file_content: bytes, use_ocr: bool = True) -> OCRResul
 async def check_document_clarity(
     file: UploadFile = File(..., description="PDF or image file to check for clarity")
 ):
-    """
-    Check if uploaded document is clear enough for processing.
-    This endpoint should be called BEFORE attempting full analysis.
-    Returns detailed clarity assessment and suggestions if document needs to be re-uploaded.
-    """
     try:
         # Validate file type
         if not file.content_type or not file.content_type.startswith(('application/pdf', 'image/')):
@@ -542,10 +534,7 @@ async def upload_and_extract(
     file: UploadFile = File(...),
     force_process: bool = Query(False, description="Force processing even if quality is poor")
 ):
-    """
-    Upload PDF/image and extract text with quality check.
-    If document quality is poor and force_process=False, returns error requesting re-upload.
-    """
+ 
     try:
         # Validate file
         if not file.content_type or not file.content_type.startswith(('application/pdf', 'image/')):
@@ -612,7 +601,7 @@ async def upload_and_extract(
 
 # ====================== DOWNLOAD GENERATION FUNCTIONS ======================
 def generate_txt_report(analysis: dict, questions: list, contract_name: str) -> str:
-    """Generate plain text report"""
+
     report = f"""
 ================================================================================
 LEGAL CONTRACT ANALYSIS REPORT
@@ -1809,9 +1798,7 @@ async def get_analysis(analysis_id: str):
 
 @app.delete("/api/analysis/{analysis_id}")
 async def delete_analysis(analysis_id: str):
-    """
-    Delete a cached analysis
-    """
+    
     if analysis_id in analysis_cache:
         del analysis_cache[analysis_id]
     
@@ -1828,9 +1815,7 @@ async def delete_analysis(analysis_id: str):
 
 @app.delete("/api/cleanup")
 async def manual_cleanup(background_tasks: BackgroundTasks = None):
-    """
-    Manually trigger cleanup of temporary files and old cache
-    """
+  
     try:
         cleaned_files = 0
         cleaned_cache = 0
