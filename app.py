@@ -1,3 +1,4 @@
+
 """
 Legal Contract Intelligence API - Complete Version with OCR & Downloads
 FastAPI backend for AI-powered contract analysis with full features
@@ -775,42 +776,53 @@ def generate_markdown_report(analysis: dict, questions: list, contract_name: str
         report += f"- {protection}\n"
     
     report += "\n---\n\n## 💡 Recommendations\n\n"
+    # Concerns
+    story.append(Paragraph("Concerns", heading_style))
+    for concern in analysis.get('concerns', []):
+        if isinstance(concern, dict):
+            severity = concern.get('severity', 'MEDIUM')
+            story.append(Paragraph(f"<b>[{severity}]</b> {concern.get('concern', '')}", normal_style))
+            story.append(Paragraph(f"<i>Impact: {concern.get('impact', 'Unknown')}</i>", normal_style))
+    
+    # Red Flags
+    story.append(Paragraph("Red Flags", heading_style))
+    for flag in analysis.get('red_flags', []):
+        story.append(Paragraph(f"⚠ {flag}", normal_style))
+    
+    # Recommendations
+    story.append(Paragraph("Recommendations", heading_style))
     for rec in analysis.get('recommendations', []):
         if isinstance(rec, dict):
-            priority_emoji = {"HIGH": "🔴", "MEDIUM": "🟡", "LOW": "🟢"}.get(rec.get('priority', ''), '⚪')
-            report += f"### {priority_emoji} {rec.get('action', '')}\n"
-            report += f"**Reason:** {rec.get('reason', '')}\n\n"
+            priority = rec.get('priority', 'MEDIUM')
+            story.append(Paragraph(f"<b>[{priority}]</b> {rec.get('action', '')}", normal_style))
     
+    # Questions
     if questions:
-        report += "---\n\n## ❓ Questions to Ask Before Signing\n\n"
+        story.append(Paragraph("Questions to Ask Before Signing", heading_style))
         for i, q in enumerate(questions, 1):
             if isinstance(q, dict):
-                priority_emoji = {"HIGH": "🔴", "MEDIUM": "🟡", "LOW": "🟢"}.get(q.get('priority', ''), '⚪')
-                report += f"{i}. {priority_emoji} **{q.get('question', '')}**\n"
-                report += f"   - Category: {q.get('category', 'general')}\n\n"
+                story.append(Paragraph(f"{i}. {q.get('question', '')}", normal_style))
             else:
-                report += f"{i}. {q}\n\n"
+                story.append(Paragraph(f"{i}. {q}", normal_style))
     
-    report += """---
-
-> **Disclaimer:** This analysis is AI-generated and should not be considered legal advice. Please consult a qualified legal professional for important decisions.
-"""
-    
-    return report
-def generate_pdf_report(analysis: dict, questions: list, contract_name: str) -> bytes:
-    """Generate PDF report"""
-    buffer = io.BytesIO()
-    doc = SimpleDocTemplate(buffer, pagesize=A4)
-    styles = getSampleStyleSheet()
-    story = []
-    
-    story.append(Paragraph("Legal Contract Analysis Report", styles['Title']))
-    story.append(Paragraph(f"Contract: {contract_name}", styles['Normal']))
-    story.append(Paragraph(f"Risk: {analysis.get('risk_level', 'Unknown')}", styles['Normal']))
+    # Disclaimer
+    story.append(Spacer(1, 30))
+    disclaimer_style = ParagraphStyle(
+        'Disclaimer',
+        parent=styles['Normal'],
+        fontSize=8,
+        textColor=colors.gray
+    )
+    story.append(Paragraph(
+        "<i>Disclaimer: This analysis is AI-generated and should not be considered legal advice. "
+        "Please consult a qualified legal professional for important decisions.</i>",
+        disclaimer_style
+    ))
     
     doc.build(story)
     buffer.seek(0)
     return buffer.getvalue()
+
 # ====================== GEMINI AI FUNCTIONS ======================
 def analyze_contract_clause(text: str, contract_name: str = "Contract", user_role: str = "general") -> dict:
     """Analyze contract using Gemini AI with role-specific insights"""
@@ -896,7 +908,6 @@ CONTRACT TEXT:
             status_code=500,
             detail=f"AI analysis failed: {str(e)}"
         )
-
 
 def generate_questions(analysis: dict) -> list:
     """Generate 'Ask Before Signing' questions"""
@@ -1245,20 +1256,16 @@ async def upload_and_analyze(
     force_reupload: bool = Query(False, description="Force analysis even with low OCR quality"),
     background_tasks: BackgroundTasks = None
 ):
-   """
-Upload PDF and analyze contract with OCR quality assessment.
-
-Parameters:
-file: PDF file to upload (max 10 MB)
-contract_name: Optional contract name
-user_role: User role for analysis
-language: Target language
-generate_audio: Generate audio summary
-force_reupload: Force analysis even with low OCR quality
-"""
-
-
-
+    """
+    Upload PDF and analyze contract with OCR quality assessment
+    
+    - **file**: PDF file to upload (max 10MB)
+    - **contract_name**: Optional contract name
+    - **user_role**: User's role for analysis
+    - **language**: Target language
+    - **generate_audio**: Generate audio summary
+    - **force_reupload**: Force analysis even with low OCR quality
+    """
     try:
         # Validate file type
         if not file.filename.lower().endswith('.pdf'):
