@@ -23,7 +23,8 @@ from dotenv import load_dotenv
 from fastapi import FastAPI, HTTPException, UploadFile, File, Query, BackgroundTasks, Depends, Header
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse, FileResponse, StreamingResponse, Response
-from pydantic import BaseModel, Field, validator
+from pydantic import BaseModel, Field
+from pydantic.functional_validators import field_validator
 from typing import Optional, Dict, Any
 from google import genai
 from PyPDF2 import PdfReader
@@ -111,7 +112,7 @@ app = FastAPI(
 app.add_middleware(
     CORSMiddleware,
     allow_origins=[
-        "https://signature-gap-frontend-e9gvoko95-nehas-projects-f3c149cb.vercel.app/",
+        "https://signature-gap-frontend-bhtzcmog5-nehas-projects-f3c149cb.vercel.app/",
         "http://localhost:3000",
     ],
     allow_credentials=True,
