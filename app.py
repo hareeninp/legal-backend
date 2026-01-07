@@ -719,12 +719,58 @@ def generate_json_report(analysis: dict, questions: list, contract_name: str) ->
     return json.dumps(report, indent=2, ensure_ascii=False)
 
 def generate_markdown_report(analysis: dict, questions: list, contract_name: str) -> str:
-    """Generate Markdown report"""
     report = f"""# Legal Contract Analysis Report
 
 **Contract Name:** {contract_name}  
-**Analysis Date:** {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}  
+**Generated At:** {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}  
 **Contract Type:** {analysis.get('contract_type', 'Unknown')}
+
+---
+
+## Risk Assessment
+- **Risk Level:** {analysis.get('risk_level')}
+- **Risk Score:** {analysis.get('risk_score')}/10
+
+---
+
+## Summary
+{analysis.get('meaning', '')}
+
+---
+
+## Favorable Terms
+"""
+    for term in analysis.get("key_terms", {}).get("favorable", []):
+        report += f"- {term}\n"
+
+    report += "\n## Unfavorable Terms\n"
+    for term in analysis.get("key_terms", {}).get("unfavorable", []):
+        report += f"- {term}\n"
+
+    report += "\n## Ambiguous Terms\n"
+    for term in analysis.get("key_terms", {}).get("ambiguous", []):
+        report += f"- {term}\n"
+
+    report += "\n## Concerns\n"
+    for concern in analysis.get("concerns", []):
+        if isinstance(concern, dict):
+            report += f"- **[{concern.get('severity')}]** {concern.get('concern')} — {concern.get('impact')}\n"
+
+    report += "\n## Recommendations\n"
+    for rec in analysis.get("recommendations", []):
+        if isinstance(rec, dict):
+            report += f"- **[{rec.get('priority')}]** {rec.get('action')} — {rec.get('reason')}\n"
+
+    if questions:
+        report += "\n## Questions to Ask Before Signing\n"
+        for i, q in enumerate(questions, 1):
+            if isinstance(q, dict):
+                report += f"{i}. {q.get('question')}\n"
+            else:
+                report += f"{i}. {q}\n"
+
+    report += "\n---\n_AI-generated analysis. Not legal advice._\n"
+    return report
 
 ---
 
