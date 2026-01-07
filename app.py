@@ -856,7 +856,7 @@ Return ONLY valid JSON in this format:
   ],
   "red_flags": ["Critical issue 1", "Critical issue 2"]
 }}
-
+"""
 Risk Score Scale:
 1-3: LOW RISK - Fair terms, standard clauses
 4-6: MEDIUM RISK - Some unfavorable terms, negotiable
