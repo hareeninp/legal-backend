@@ -24,7 +24,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse, FileResponse, StreamingResponse, Response
 from pydantic import BaseModel, Field, validator
 from typing import Optional, Dict, Any
-import google.generativeai as genai
+from google import genai
 from PyPDF2 import PdfReader
 from google.cloud import vision
 from google.oauth2 import service_account
