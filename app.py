@@ -123,20 +123,18 @@ app.add_middleware(
 class DownloadOptions(BaseModel):
     audio: str = ""
 
-
-
-
 class AnalyzeRequest(BaseModel):
-    text: str = Field(..., min_length=50, description="Contract text to analyze")
-    contract_name: Optional[str] = Field("Contract", description="Name of the contract")
-    user_role: Optional[str] = Field("general", description="User role: employee, employer, freelancer, tenant, landlord")
-    
-    @validator('text')
+    text: str = Field(..., min_length=50)
+    contract_name: Optional[str] = Field("Contract")
+    user_role: Optional[str] = Field("general")
+
+    @field_validator("text")
+    @classmethod
     def validate_text(cls, v):
         if len(v.strip()) < 50:
-            raise ValueError('Contract text must be at least 50 characters')
+            raise ValueError("Contract text must be at least 50 characters")
         return v
-    
+
     class Config:
         json_schema_extra = {
             "example": {
@@ -1954,7 +1952,7 @@ if __name__ == "__main__":
     debug = os.getenv("DEBUG", "false").lower() == "true"
     
     uvicorn.run(
-        "main:app",
+        "app:app",
         host=host,
         port=port,
         reload=debug,
