@@ -1303,7 +1303,7 @@ async def upload_and_analyze(
     force_reupload: bool = Query(False, description="Force analysis even with low OCR quality"),
     background_tasks: BackgroundTasks = None
 ):
-    """
+   """
 Upload PDF and analyze contract with OCR quality assessment.
 
 Parameters:
@@ -1314,6 +1314,8 @@ language: Target language
 generate_audio: Generate audio summary
 force_reupload: Force analysis even with low OCR quality
 """
+
+
 
     try:
         # Validate file type
