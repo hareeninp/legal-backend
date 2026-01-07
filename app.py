@@ -776,52 +776,55 @@ def generate_markdown_report(analysis: dict, questions: list, contract_name: str
         report += f"- {protection}\n"
     
     report += "\n---\n\n## 💡 Recommendations\n\n"
-    # Concerns
-    story.append(Paragraph("Concerns", heading_style))
-    for concern in analysis.get('concerns', []):
-        if isinstance(concern, dict):
-            severity = concern.get('severity', 'MEDIUM')
-            story.append(Paragraph(f"<b>[{severity}]</b> {concern.get('concern', '')}", normal_style))
-            story.append(Paragraph(f"<i>Impact: {concern.get('impact', 'Unknown')}</i>", normal_style))
-    
-    # Red Flags
-    story.append(Paragraph("Red Flags", heading_style))
-    for flag in analysis.get('red_flags', []):
-        story.append(Paragraph(f"⚠ {flag}", normal_style))
-    
-    # Recommendations
-    story.append(Paragraph("Recommendations", heading_style))
     for rec in analysis.get('recommendations', []):
         if isinstance(rec, dict):
-            priority = rec.get('priority', 'MEDIUM')
-            story.append(Paragraph(f"<b>[{priority}]</b> {rec.get('action', '')}", normal_style))
+            priority_emoji = {"HIGH": "🔴", "MEDIUM": "🟡", "LOW": "🟢"}.get(rec.get('priority', ''), '⚪')
+            report += f"### {priority_emoji} {rec.get('action', '')}\n"
+            report += f"**Reason:** {rec.get('reason', '')}\n\n"
     
-    # Questions
     if questions:
-        story.append(Paragraph("Questions to Ask Before Signing", heading_style))
+        report += "---\n\n## ❓ Questions to Ask Before Signing\n\n"
         for i, q in enumerate(questions, 1):
             if isinstance(q, dict):
-                story.append(Paragraph(f"{i}. {q.get('question', '')}", normal_style))
+                priority_emoji = {"HIGH": "🔴", "MEDIUM": "🟡", "LOW": "🟢"}.get(q.get('priority', ''), '⚪')
+                report += f"{i}. {priority_emoji} **{q.get('question', '')}**\n"
+                report += f"   - Category: {q.get('category', 'general')}\n\n"
             else:
-                story.append(Paragraph(f"{i}. {q}", normal_style))
+                report += f"{i}. {q}\n\n"
     
-    # Disclaimer
-    story.append(Spacer(1, 30))
-    disclaimer_style = ParagraphStyle(
-        'Disclaimer',
-        parent=styles['Normal'],
-        fontSize=8,
-        textColor=colors.gray
-    )
-    story.append(Paragraph(
-        "<i>Disclaimer: This analysis is AI-generated and should not be considered legal advice. "
-        "Please consult a qualified legal professional for important decisions.</i>",
-        disclaimer_style
-    ))
+    report += """---
+
+> **Disclaimer:** This analysis is AI-generated and should not be considered legal advice. Please consult a qualified legal professional for important decisions.
+"""
+    
+    return report
+
+def generate_pdf_report(analysis: dict, questions: list, contract_name: str) -> bytes:
+    """Generate PDF report"""
+    buffer = io.BytesIO()
+    doc = SimpleDocTemplate(buffer, pagesize=A4)
+    styles = getSampleStyleSheet()
+    story = []
+    
+    story.append(Paragraph("Legal Contract Analysis Report", styles['Title']))
+    story.append(Paragraph(f"Contract: {contract_name}", styles['Normal']))
+    story.append(Paragraph(f"Risk Level: {analysis.get('risk_level', 'Unknown')}", styles['Normal']))
+    story.append(Paragraph(f"Risk Score: {analysis.get('risk_score', 'N/A')}/10", styles['Normal']))
+    
+    if questions:
+        story.append(Paragraph("Questions to Ask Before Signing:", styles['Heading2']))
+        for i, q in enumerate(questions, 1):
+            q_text = q.get('question', q) if isinstance(q, dict) else q
+            story.append(Paragraph(f"{i}. {q_text}", styles['Normal']))
     
     doc.build(story)
     buffer.seek(0)
     return buffer.getvalue()
+
+    
+     
+      
+    
 
 # ====================== GEMINI AI FUNCTIONS ======================
 def analyze_contract_clause(text: str, contract_name: str = "Contract", user_role: str = "general") -> dict:
