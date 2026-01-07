@@ -1920,7 +1920,8 @@ async def startup_event():
 
 @app.on_event("shutdown")
 async def shutdown_event():
-    """Cleanup resources on shutdown"""
+    # Cleanup resources on shutdown
+
     try:
         # Clean up temp files
         if os.path.exists(TEMP_DIR):
