@@ -110,7 +110,7 @@ app = FastAPI(
 app.add_middleware(
     CORSMiddleware,
     allow_origins=[
-        "https://signature-gap-frontend-djnmbsrg2-nehas-projects-f3c149cb.vercel.app/",
+        "https://signature-gap-frontend-e9gvoko95-nehas-projects-f3c149cb.vercel.app/",
         "http://localhost:3000",
     ],
     allow_credentials=True,
