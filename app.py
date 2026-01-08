@@ -23,13 +23,12 @@ from fastapi import FastAPI, HTTPException, UploadFile, File, Query, BackgroundT
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse, FileResponse, StreamingResponse, Response
 from pydantic import BaseModel, Field, validator
-from typing import Optional, Dict, Any
 from google import genai
 from PyPDF2 import PdfReader
 from google.cloud import vision
 from google.oauth2 import service_account
 import io
-import fitz  # PyMuPDF for better PDF handling
+import fitz
 from reportlab.lib.pagesizes import letter, A4
 from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle
 from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
@@ -51,20 +50,18 @@ SARVAM_API_KEY = os.getenv("SARVAM_API_KEY")
 GOOGLE_CLOUD_CREDENTIALS = os.getenv("GOOGLE_CLOUD_CREDENTIALS")
 GOOGLE_APPLICATION_CREDENTIALS = os.getenv("GOOGLE_APPLICATION_CREDENTIALS")
 FRONTEND_URL = os.getenv("FRONTEND_URL", "http://localhost:3000")
-MAX_FILE_SIZE = 10 * 1024 * 1024  # 10MB
+MAX_FILE_SIZE = 10 * 1024 * 1024
 TEMP_DIR = "temp"
 UPLOAD_DIR = "uploads"
 DOWNLOADS_DIR = "downloads"
-OCR_CONFIDENCE_THRESHOLD = float(os.getenv("OCR_CONFIDENCE_THRESHOLD", "0.75"))  # 75% default
+OCR_CONFIDENCE_THRESHOLD = float(os.getenv("OCR_CONFIDENCE_THRESHOLD", "0.75"))
 
 if not GEMINI_API_KEY:
-    raise RuntimeError("❌ GEMINI_API_KEY missing in environment variables")
+    raise RuntimeError("GEMINI_API_KEY missing in environment variables")
 
-# Configure Gemini
 client = genai.Client(api_key=GEMINI_API_KEY)
 GEMINI_MODEL = "models/gemini-flash-latest"
 
-# Configure Google Cloud Vision (optional)
 vision_client = None
 try:
     if GOOGLE_APPLICATION_CREDENTIALS and os.path.exists(GOOGLE_APPLICATION_CREDENTIALS):
@@ -72,16 +69,14 @@ try:
             GOOGLE_APPLICATION_CREDENTIALS
         )
         vision_client = vision.ImageAnnotatorClient(credentials=credentials)
-        logger.info("✅ Google Cloud Vision configured from file")
+        logger.info("Google Cloud Vision configured from file")
     elif GOOGLE_CLOUD_CREDENTIALS:
-        # Parse JSON credentials from environment variable
         creds_dict = json.loads(GOOGLE_CLOUD_CREDENTIALS)
         credentials = service_account.Credentials.from_service_account_info(creds_dict)
         vision_client = vision.ImageAnnotatorClient(credentials=credentials)
-        logger.info("✅ Google Cloud Vision configured from environment")
+        logger.info("Google Cloud Vision configured from environment")
 except Exception as e:
-    logger.warning(f"⚠️ Google Cloud Vision not configured: {e}")
-    vision_client = None
+    logger.warning(f"Google Cloud Vision not configured: {e}")
 
 # ====================== ENUMS ======================
 class DownloadFormat(str, Enum):
@@ -106,7 +101,6 @@ app = FastAPI(
     redoc_url="/redoc"
 )
 
-# CORS Configuration
 app.add_middleware(
     CORSMiddleware,
     allow_origins=[
@@ -121,9 +115,6 @@ app.add_middleware(
 # ====================== REQUEST MODELS ======================
 class DownloadOptions(BaseModel):
     audio: str = ""
-
-
-
 
 class AnalyzeRequest(BaseModel):
     text: str = Field(..., min_length=50, description="Contract text to analyze")
@@ -184,7 +175,6 @@ class OCRResult(BaseModel):
     word_count: int
 
 class DocumentClarityCheckResponse(BaseModel):
-    """Response model for document clarity check"""
     success: bool
     is_clear: bool
     confidence: float
@@ -208,18 +198,15 @@ class ErrorResponse(BaseModel):
     timestamp: str
 
 # ====================== IN-MEMORY STORAGE ======================
-# For demo purposes - use Redis/Database in production
 analysis_cache: Dict[str, Dict[str, Any]] = {}
 audio_cache: Dict[str, str] = {}
 
 # ====================== UTILITY FUNCTIONS ======================
 def generate_analysis_id(text: str, contract_name: str) -> str:
-    """Generate unique analysis ID"""
     content = f"{text[:100]}{contract_name}{datetime.now().isoformat()}"
     return hashlib.md5(content.encode()).hexdigest()[:16]
 
 def mask_sensitive_data(text: str) -> str:
-    """Mask PII data using regex patterns"""
     patterns = [
         (r"\b\d{10}\b", "[PHONE]"),
         (r"\+91[\s-]?\d{10}", "[PHONE]"),
@@ -237,7 +224,6 @@ def mask_sensitive_data(text: str) -> str:
     return text
 
 def clean_json_response(text: str) -> str:
-    """Clean JSON response from Gemini"""
     text = text.strip()
     if text.startswith("```json"):
         text = text[7:]
@@ -248,7 +234,6 @@ def clean_json_response(text: str) -> str:
     return text.strip()
 
 def assess_ocr_quality(confidence: float) -> Tuple[OCRQuality, bool, str]:
-    """Assess OCR quality and determine if reupload is needed"""
     if confidence >= 0.95:
         return OCRQuality.EXCELLENT, False, "Excellent text extraction quality - document is clear and readable"
     elif confidence >= 0.85:
@@ -261,743 +246,23 @@ def assess_ocr_quality(confidence: float) -> Tuple[OCRQuality, bool, str]:
         return OCRQuality.FAILED, True, "Text extraction failed. Document is not clear enough - please upload a better quality document"
 
 def generate_clarity_suggestions(confidence: float, word_count: int, page_count: int) -> List[str]:
-    """Generate specific suggestions for improving document clarity"""
     suggestions = []
     
     if confidence < OCR_CONFIDENCE_THRESHOLD:
-        suggestions.append("📸 Ensure good lighting when scanning or photographing the document")
-        suggestions.append("🔍 Use a higher resolution setting (at least 300 DPI for scans)")
-        suggestions.append("📄 Make sure the document is flat and not wrinkled or folded")
-        suggestions.append("🎯 Focus the camera properly if taking a photo")
-        suggestions.append("🖨️ If possible, use a proper scanner instead of a phone camera")
+        suggestions.append("Ensure good lighting when scanning or photographing the document")
+        suggestions.append("Use a higher resolution setting (at least 300 DPI for scans)")
+        suggestions.append("Make sure the document is flat and not wrinkled or folded")
+        suggestions.append("Focus the camera properly if taking a photo")
+        suggestions.append("If possible, use a proper scanner instead of a phone camera")
     
     if word_count < 50:
-        suggestions.append("⚠️ Very little text was extracted - the document may be too blurry or low quality")
+        suggestions.append("Very little text was extracted - the document may be too blurry or low quality")
     
     if confidence < 0.5:
-        suggestions.append("🔴 Critical: Document quality is too poor for reliable analysis")
-        suggestions.append("💡 Try uploading a digital PDF if available instead of a scanned copy")
+        suggestions.append("Critical: Document quality is too poor for reliable analysis")
+        suggestions.append("Try uploading a digital PDF if available instead of a scanned copy")
     
     return suggestions
-
-# ====================== OCR FUNCTIONS ======================
-def extract_text_with_pypdf(file_content: bytes) -> Tuple[str, float]:
-    """Extract text using PyPDF2"""
-    try:
-        pdf_file = io.BytesIO(file_content)
-        reader = PdfReader(pdf_file)
-        text = ""
-        
-        for page in reader.pages:
-            extracted = page.extract_text()
-            if extracted:
-                text += extracted + "\n"
-        
-        # Estimate confidence based on text quality
-        word_count = len(text.split())
-        char_count = len(text.replace(" ", "").replace("\n", ""))
-        
-        # Simple heuristic for confidence
-        if word_count > 100 and char_count > 500:
-            confidence = 0.85
-        elif word_count > 50:
-            confidence = 0.70
-        else:
-            confidence = 0.50
-        
-        return text, confidence
-    except Exception as e:
-        logger.error(f"PyPDF2 extraction error: {e}")
-        return "", 0.0
-
-def extract_text_with_pymupdf(file_content: bytes) -> Tuple[str, float]:
-    """Extract text using PyMuPDF (better quality)"""
-    try:
-        pdf_document = fitz.open(stream=file_content, filetype="pdf")
-        text = ""
-        total_blocks = 0
-        readable_blocks = 0
-        
-        for page in pdf_document:
-            blocks = page.get_text("dict")["blocks"]
-            for block in blocks:
-                total_blocks += 1
-                if "lines" in block:
-                    for line in block["lines"]:
-                        for span in line["spans"]:
-                            span_text = span["text"].strip()
-                            if span_text:
-                                text += span_text + " "
-                                readable_blocks += 1
-            text += "\n"
-        
-        pdf_document.close()
-        
-        # Calculate confidence based on readable blocks ratio
-        confidence = readable_blocks / max(total_blocks, 1) if total_blocks > 0 else 0.5
-        confidence = min(confidence * 1.2, 1.0)  # Boost slightly
-        
-        return text.strip(), confidence
-    except Exception as e:
-        logger.error(f"PyMuPDF extraction error: {e}")
-        return "", 0.0
-
-def extract_text_with_google_ocr(file_content: bytes) -> Tuple[str, float]:
-    """Extract text using Google Cloud Vision OCR"""
-    if not vision_client:
-        logger.warning("Google Cloud Vision not configured, falling back to PyMuPDF")
-        return extract_text_with_pymupdf(file_content)
-    
-    try:
-        # Convert PDF pages to images and OCR each
-        pdf_document = fitz.open(stream=file_content, filetype="pdf")
-        full_text = ""
-        total_confidence = 0.0
-        page_count = 0
-        
-        for page_num, page in enumerate(pdf_document):
-            # Render page to image
-            pix = page.get_pixmap(matrix=fitz.Matrix(2, 2))  # 2x zoom for better quality
-            img_bytes = pix.tobytes("png")
-            
-            # Send to Google Vision
-            image = vision.Image(content=img_bytes)
-            response = vision_client.document_text_detection(image=image)
-            
-            if response.error.message:
-                logger.error(f"Google Vision error: {response.error.message}")
-                continue
-            
-            if response.full_text_annotation:
-                full_text += response.full_text_annotation.text + "\n"
-                
-                # Calculate confidence for this page
-                page_confidence = 0.0
-                block_count = 0
-                for page_anno in response.full_text_annotation.pages:
-                    for block in page_anno.blocks:
-                        page_confidence += block.confidence
-                        block_count += 1
-                
-                if block_count > 0:
-                    total_confidence += page_confidence / block_count
-                    page_count += 1
-        
-        pdf_document.close()
-        
-        # Average confidence across pages
-        avg_confidence = total_confidence / max(page_count, 1)
-        
-        return full_text.strip(), avg_confidence
-        
-    except Exception as e:
-        logger.error(f"Google OCR error: {e}")
-        # Fallback to PyMuPDF
-        return extract_text_with_pymupdf(file_content)
-
-def extract_text_from_pdf(file_content: bytes, use_ocr: bool = True) -> OCRResult:
-    """
-    Extract text from PDF with quality assessment
-    """
-    try:
-        # Try PyMuPDF first (fastest)
-        text, confidence = extract_text_with_pymupdf(file_content)
-        
-        # If confidence is low and OCR is enabled, try Google OCR
-        if confidence < OCR_CONFIDENCE_THRESHOLD and use_ocr and vision_client:
-            logger.info("Low confidence from PyMuPDF, trying Google Cloud OCR...")
-            ocr_text, ocr_confidence = extract_text_with_google_ocr(file_content)
-            
-            if ocr_confidence > confidence:
-                text = ocr_text
-                confidence = ocr_confidence
-        
-        # If still low, try PyPDF2 as last resort
-        if confidence < 0.5:
-            pypdf_text, pypdf_confidence = extract_text_with_pypdf(file_content)
-            if pypdf_confidence > confidence:
-                text = pypdf_text
-                confidence = pypdf_confidence
-        
-        # Assess quality
-        quality, needs_reupload, message = assess_ocr_quality(confidence)
-        
-        # Count pages
-        try:
-            pdf_document = fitz.open(stream=file_content, filetype="pdf")
-            page_count = len(pdf_document)
-            pdf_document.close()
-        except:
-            page_count = 1
-        
-        word_count = len(text.split())
-        
-        return OCRResult(
-            text=text,
-            confidence=round(confidence, 3),
-            quality=quality,
-            needs_reupload=needs_reupload,
-            message=message,
-            page_count=page_count,
-            word_count=word_count
-        )
-        
-    except Exception as e:
-        logger.error(f"PDF extraction error: {e}")
-        return OCRResult(
-            text="",
-            confidence=0.0,
-            quality=OCRQuality.FAILED,
-            needs_reupload=True,
-            message=f"Failed to extract text: {str(e)}",
-            page_count=0,
-            word_count=0
-        )
-
-# ====================== NEW ENDPOINT: DOCUMENT CLARITY CHECK ======================
-@app.post("/api/v1/check-document-clarity", response_model=DocumentClarityCheckResponse)
-async def check_document_clarity(
-    file: UploadFile = File(..., description="PDF or image file to check for clarity")
-):
-    """
-    Check if uploaded document is clear enough for processing.
-    This endpoint should be called BEFORE attempting full analysis.
-    Returns detailed clarity assessment and suggestions if document needs to be re-uploaded.
-    """
-    try:
-        # Validate file type
-        if not file.content_type or not file.content_type.startswith(('application/pdf', 'image/')):
-            raise HTTPException(
-                status_code=400,
-                detail="Only PDF files and images are supported"
-            )
-        
-        # Read file content
-        file_content = await file.read()
-        
-        # Validate file size
-        if len(file_content) > MAX_FILE_SIZE:
-            raise HTTPException(
-                status_code=400,
-                detail=f"File too large. Maximum size: {MAX_FILE_SIZE / 1024 / 1024}MB"
-            )
-        
-        if len(file_content) == 0:
-            raise HTTPException(
-                status_code=400,
-                detail="Empty file uploaded"
-            )
-        
-        logger.info(f"Checking clarity for file: {file.filename}")
-        
-        # Extract text and assess quality
-        ocr_result = extract_text_from_pdf(file_content, use_ocr=True)
-        
-        # Determine if document is clear enough
-        is_clear = not ocr_result.needs_reupload
-        
-        # Generate suggestions
-        suggestions = generate_clarity_suggestions(
-            ocr_result.confidence,
-            ocr_result.word_count,
-            ocr_result.page_count
-        )
-        
-        # Build response
-        response = DocumentClarityCheckResponse(
-            success=True,
-            is_clear=is_clear,
-            confidence=ocr_result.confidence,
-            quality=ocr_result.quality,
-            needs_reupload=ocr_result.needs_reupload,
-            message=ocr_result.message,
-            details={
-                "page_count": ocr_result.page_count,
-                "word_count": ocr_result.word_count,
-                "extracted_text_preview": ocr_result.text[:200] + "..." if len(ocr_result.text) > 200 else ocr_result.text,
-                "quality_threshold": OCR_CONFIDENCE_THRESHOLD,
-                "has_google_ocr": vision_client is not None
-            },
-            suggestions=suggestions if ocr_result.needs_reupload else [
-                "✅ Document quality is good - you can proceed with analysis"
-            ]
-        )
-        
-        logger.info(f"Clarity check complete: is_clear={is_clear}, confidence={ocr_result.confidence}")
-        
-        return response
-        
-    except HTTPException:
-        raise
-    except Exception as e:
-        logger.error(f"Document clarity check error: {e}")
-        raise HTTPException(
-            status_code=500,
-            detail=f"Error checking document clarity: {str(e)}"
-        )
-
-# ====================== MODIFIED UPLOAD ENDPOINT ======================
-@app.post("/api/v1/upload-and-extract")
-async def upload_and_extract(
-    file: UploadFile = File(...),
-    force_process: bool = Query(False, description="Force processing even if quality is poor")
-):
-    """
-    Upload PDF/image and extract text with quality check.
-    If document quality is poor and force_process=False, returns error requesting re-upload.
-    """
-    try:
-        # Validate file
-        if not file.content_type or not file.content_type.startswith(('application/pdf', 'image/')):
-            raise HTTPException(400, "Only PDF files and images are supported")
-        
-        file_content = await file.read()
-        
-        if len(file_content) > MAX_FILE_SIZE:
-            raise HTTPException(400, f"File too large. Max: {MAX_FILE_SIZE / 1024 / 1024}MB")
-        
-        logger.info(f"Processing upload: {file.filename}")
-        
-        # Extract text with quality assessment
-        ocr_result = extract_text_from_pdf(file_content, use_ocr=True)
-        
-        # Check if reupload is needed
-        if ocr_result.needs_reupload and not force_process:
-            suggestions = generate_clarity_suggestions(
-                ocr_result.confidence,
-                ocr_result.word_count,
-                ocr_result.page_count
-            )
-            
-            return JSONResponse(
-                status_code=400,
-                content={
-                    "success": False,
-                    "error": "Document quality too poor for reliable analysis",
-                    "needs_reupload": True,
-                    "quality_details": {
-                        "confidence": ocr_result.confidence,
-                        "quality": ocr_result.quality,
-                        "message": ocr_result.message,
-                        "word_count": ocr_result.word_count,
-                        "page_count": ocr_result.page_count
-                    },
-                    "suggestions": suggestions,
-                    "hint": "Use /api/v1/check-document-clarity endpoint first to verify document quality"
-                }
-            )
-        
-        # Document is clear enough or forced - proceed
-        return {
-            "success": True,
-            "text": ocr_result.text,
-            "metadata": {
-                "filename": file.filename,
-                "page_count": ocr_result.page_count,
-                "word_count": ocr_result.word_count,
-                "extraction_quality": {
-                    "confidence": ocr_result.confidence,
-                    "quality": ocr_result.quality,
-                    "message": ocr_result.message,
-                    "needs_improvement": ocr_result.quality in [OCRQuality.ACCEPTABLE, OCRQuality.POOR]
-                }
-            }
-        }
-        
-    except HTTPException:
-        raise
-    except Exception as e:
-        logger.error(f"Upload error: {e}")
-        raise HTTPException(500, f"Upload failed: {str(e)}")
-
-# ====================== DOWNLOAD GENERATION FUNCTIONS ======================
-def generate_txt_report(analysis: dict, questions: list, contract_name: str) -> str:
-    """Generate plain text report"""
-    report = f"""
-================================================================================
-LEGAL CONTRACT ANALYSIS REPORT
-================================================================================
-
-Contract Name: {contract_name}
-Analysis Date: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}
-Contract Type: {analysis.get('contract_type', 'Unknown')}
-
---------------------------------------------------------------------------------
-RISK ASSESSMENT
---------------------------------------------------------------------------------
-Risk Level: {analysis.get('risk_level', 'Unknown')}
-Risk Score: {analysis.get('risk_score', 'N/A')}/10
-
---------------------------------------------------------------------------------
-SUMMARY
---------------------------------------------------------------------------------
-{analysis.get('meaning', 'No summary available')}
-
---------------------------------------------------------------------------------
-KEY TERMS
---------------------------------------------------------------------------------
-
-FAVORABLE TERMS:
-{chr(10).join(['• ' + term for term in analysis.get('key_terms', {}).get('favorable', [])])}
-
-UNFAVORABLE TERMS:
-{chr(10).join(['• ' + term for term in analysis.get('key_terms', {}).get('unfavorable', [])])}
-
-AMBIGUOUS TERMS:
-{chr(10).join(['• ' + term for term in analysis.get('key_terms', {}).get('ambiguous', [])])}
-
---------------------------------------------------------------------------------
-CONCERNS
---------------------------------------------------------------------------------
-"""
-    
-    for concern in analysis.get('concerns', []):
-        if isinstance(concern, dict):
-            report += f"\n[{concern.get('severity', 'MEDIUM')}] {concern.get('concern', '')}"
-            report += f"\n   Impact: {concern.get('impact', 'Unknown')}\n"
-    
-    report += """
---------------------------------------------------------------------------------
-RED FLAGS
---------------------------------------------------------------------------------
-"""
-    for flag in analysis.get('red_flags', []):
-        report += f"⚠️ {flag}\n"
-    
-    report += """
---------------------------------------------------------------------------------
-MISSING PROTECTIONS
---------------------------------------------------------------------------------
-"""
-    for protection in analysis.get('missing_protections', []):
-        report += f"• {protection}\n"
-    
-    report += """
---------------------------------------------------------------------------------
-RECOMMENDATIONS
---------------------------------------------------------------------------------
-"""
-    for rec in analysis.get('recommendations', []):
-        if isinstance(rec, dict):
-            report += f"\n[{rec.get('priority', 'MEDIUM')}] {rec.get('action', '')}"
-            report += f"\n   Reason: {rec.get('reason', '')}\n"
-    
-    if questions:
-        report += """
---------------------------------------------------------------------------------
-QUESTIONS TO ASK BEFORE SIGNING
---------------------------------------------------------------------------------
-"""
-        for i, q in enumerate(questions, 1):
-            if isinstance(q, dict):
-                report += f"\n{i}. [{q.get('priority', 'MEDIUM')}] {q.get('question', '')}"
-                report += f"\n   Category: {q.get('category', 'general')}\n"
-            else:
-                report += f"\n{i}. {q}\n"
-    
-    report += """
-================================================================================
-DISCLAIMER: This analysis is AI-generated and should not be considered legal 
-advice. Please consult a qualified legal professional for important decisions.
-================================================================================
-"""
-    
-    return report
-
-def generate_json_report(analysis: dict, questions: list, contract_name: str) -> str:
-    """Generate JSON report"""
-    report = {
-        "report_metadata": {
-            "contract_name": contract_name,
-            "generated_at": datetime.now().isoformat(),
-            "version": "3.0.0"
-        },
-        "analysis": analysis,
-        "questions": questions,
-        "disclaimer": "This analysis is AI-generated and should not be considered legal advice."
-    }
-    return json.dumps(report, indent=2, ensure_ascii=False)
-
-def generate_markdown_report(analysis: dict, questions: list, contract_name: str) -> str:
-    """Generate Markdown report"""
-    report = f"""# Legal Contract Analysis Report
-
-**Contract Name:** {contract_name}  
-**Analysis Date:** {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}  
-**Contract Type:** {analysis.get('contract_type', 'Unknown')}
-
----
-
-## 🎯 Risk Assessment
-
-| Metric | Value |
-|--------|-------|
-| Risk Level | **{analysis.get('risk_level', 'Unknown')}** |
-| Risk Score | **{analysis.get('risk_score', 'N/A')}/10** |
-
----
-
-## 📋 Summary
-
-{analysis.get('meaning', 'No summary available')}
-
----
-
-## 📊 Key Terms Analysis
-
-### ✅ Favorable Terms
-"""
-    
-    for term in analysis.get('key_terms', {}).get('favorable', []):
-        report += f"- {term}\n"
-    
-    report += "\n### ❌ Unfavorable Terms\n"
-    for term in analysis.get('key_terms', {}).get('unfavorable', []):
-        report += f"- {term}\n"
-    
-    report += "\n### ❓ Ambiguous Terms\n"
-    for term in analysis.get('key_terms', {}).get('ambiguous', []):
-        report += f"- {term}\n"
-    
-    report += "\n---\n\n## ⚠️ Concerns\n\n"
-    for concern in analysis.get('concerns', []):
-        if isinstance(concern, dict):
-            severity_emoji = {"HIGH": "🔴", "MEDIUM": "🟡", "LOW": "🟢"}.get(concern.get('severity', ''), '⚪')
-            report += f"### {severity_emoji} {concern.get('concern', '')}\n"
-            report += f"**Impact:** {concern.get('impact', 'Unknown')}\n\n"
-    
-    report += "---\n\n## 🚩 Red Flags\n\n"
-    for flag in analysis.get('red_flags', []):
-        report += f"- ⚠️ {flag}\n"
-    
-    report += "\n---\n\n## 🛡️ Missing Protections\n\n"
-    for protection in analysis.get('missing_protections', []):
-        report += f"- {protection}\n"
-    
-    report += "\n---\n\n## 💡 Recommendations\n\n"
-    # Concerns
-    story.append(Paragraph("Concerns", heading_style))
-    for concern in analysis.get('concerns', []):
-        if isinstance(concern, dict):
-            severity = concern.get('severity', 'MEDIUM')
-            story.append(Paragraph(f"<b>[{severity}]</b> {concern.get('concern', '')}", normal_style))
-            story.append(Paragraph(f"<i>Impact: {concern.get('impact', 'Unknown')}</i>", normal_style))
-    
-    # Red Flags
-    story.append(Paragraph("Red Flags", heading_style))
-    for flag in analysis.get('red_flags', []):
-        story.append(Paragraph(f"⚠ {flag}", normal_style))
-    
-    # Recommendations
-    story.append(Paragraph("Recommendations", heading_style))
-    for rec in analysis.get('recommendations', []):
-        if isinstance(rec, dict):
-            priority = rec.get('priority', 'MEDIUM')
-            story.append(Paragraph(f"<b>[{priority}]</b> {rec.get('action', '')}", normal_style))
-    
-    # Questions
-    if questions:
-        story.append(Paragraph("Questions to Ask Before Signing", heading_style))
-        for i, q in enumerate(questions, 1):
-            if isinstance(q, dict):
-                story.append(Paragraph(f"{i}. {q.get('question', '')}", normal_style))
-            else:
-                story.append(Paragraph(f"{i}. {q}", normal_style))
-    
-    # Disclaimer
-    story.append(Spacer(1, 30))
-    disclaimer_style = ParagraphStyle(
-        'Disclaimer',
-        parent=styles['Normal'],
-        fontSize=8,
-        textColor=colors.gray
-    )
-    story.append(Paragraph(
-        "<i>Disclaimer: This analysis is AI-generated and should not be considered legal advice. "
-        "Please consult a qualified legal professional for important decisions.</i>",
-        disclaimer_style
-    ))
-    
-    doc.build(story)
-    buffer.seek(0)
-    return buffer.getvalue()
-
-# ====================== GEMINI AI FUNCTIONS ======================
-def analyze_contract_clause(text: str, contract_name: str = "Contract", user_role: str = "general") -> dict:
-    """Analyze contract using Gemini AI with role-specific insights"""
-    role_context = {
-        "employee": "Focus on employee rights, benefits, and protections",
-        "employer": "Focus on employer protections and obligations",
-        "freelancer": "Focus on payment terms, deliverables, and IP rights",
-        "tenant": "Focus on tenant rights, deposits, and maintenance",
-        "landlord": "Focus on property protection and payment terms",
-        "general": "Provide balanced analysis for all parties"
-    }
-    
-    context = role_context.get(user_role, role_context["general"])
-    
-    prompt = f"""You are a legal contract expert. Analyze this contract from the perspective of a {user_role}.
-
-{context}
-
-Return ONLY valid JSON in this format:
-
-{{
-  "contract_name": "{contract_name}",
-  "contract_type": "employment | rental | freelance | service | nda | other",
-  "risk_level": "LOW | MEDIUM | HIGH | CRITICAL",
-  "risk_score": 5,
-  "meaning": "Clear explanation of what this clause means in simple terms",
-  "who_affected": ["employees", "freshers", "contractors"],
-  "key_terms": {{
-    "favorable": ["positive aspect 1", "positive aspect 2"],
-    "unfavorable": ["negative aspect 1", "negative aspect 2"],
-    "ambiguous": ["unclear term 1"]
-  }},
-  "concerns": [
-    {{"concern": "Specific issue", "severity": "HIGH|MEDIUM|LOW", "impact": "What could happen"}}
-  ],
-  "missing_protections": ["Protection 1", "Protection 2"],
-  "legal_compliance": {{
-    "labor_laws": "compliant | non-compliant | unclear",
-    "notes": "Any compliance issues"
-  }},
-  "recommendations": [
-    {{"action": "What to do", "priority": "HIGH|MEDIUM|LOW", "reason": "Why important"}}
-  ],
-  "red_flags": ["Critical issue 1", "Critical issue 2"]
-}}
-
-Risk Score Scale:
-1-3: LOW RISK - Fair terms, standard clauses
-4-6: MEDIUM RISK - Some unfavorable terms, negotiable
-7-8: HIGH RISK - Significantly unfavorable, requires changes
-9-10: CRITICAL RISK - Dangerous terms, do not sign
-
-CONTRACT TEXT:
-{text[:15000]}
-"""
-
-    try:
-        response = client.models.generate_content(
-    model=GEMINI_MODEL,
-    contents=prompt)
-        text = response.text
-    
-
-        cleaned = clean_json_response(response.text)
-        analysis = json.loads(cleaned)
-        
-        # Add metadata
-        analysis["analyzed_at"] = datetime.now().isoformat()
-        analysis["user_role"] = user_role
-        
-        logger.info(f"Analysis complete for {contract_name} (Role: {user_role})")
-        return analysis
-        
-    except json.JSONDecodeError as e:
-        logger.error(f"JSON parsing error: {e}")
-        raise HTTPException(
-            status_code=500,
-            detail="Failed to parse AI response"
-        )
-    except Exception as e:
-        logger.error(f"Gemini API error: {e}")
-        raise HTTPException(
-            status_code=500,
-            detail=f"AI analysis failed: {str(e)}"
-        )
-
-def generate_questions(analysis: dict) -> list:
-    """Generate 'Ask Before Signing' questions"""
-    prompt = f"""Generate 5-7 specific, actionable questions someone should ask BEFORE signing this contract.
-
-Return ONLY JSON:
-{{
-  "questions": [
-    {{"question": "Could you clarify...?", "category": "payment|termination|liability|general", "priority": "HIGH|MEDIUM|LOW"}}
-  ]
-}}
-
-ANALYSIS:
-{json.dumps(analysis, indent=2)}
-"""
-
-    try:
-        response = client.models.generate_content(
-    model=GEMINI_MODEL,
-    contents=prompt)
-        text = response.text
-
-
-        cleaned = clean_json_response(response.text)
-        result = json.loads(cleaned)
-        return result.get("questions", [])
-    except Exception as e:
-        logger.error(f"Question generation error: {e}")
-        return [
-            {"question": "Could you clarify the terms mentioned in this clause?", "category": "general", "priority": "MEDIUM"},
-            {"question": "What are the consequences if I don't comply with this clause?", "category": "liability", "priority": "HIGH"}
-        ]
-
-def compare_contracts(analysis1: dict, analysis2: dict) -> dict:
-    """Compare two contract analyses"""
-    prompt = f"""Compare these two contracts and provide detailed analysis.
-
-Return ONLY JSON:
-
-{{
-  "recommended": "Contract 1 | Contract 2 | Neither",
-  "confidence": "HIGH | MEDIUM | LOW",
-  "reasoning": "Clear explanation",
-  "risk_comparison": {{
-    "contract1_risk": "summary with score",
-    "contract2_risk": "summary with score",
-    "winner": "Contract 1 | Contract 2"
-  }},
-  "key_differences": [
-    {{"aspect": "Payment", "contract1": "desc", "contract2": "desc", "better_in": "Contract 1|Contract 2"}}
-  ],
-  "final_advice": "What the user should do"
-}}
-
-CONTRACT 1:
-{json.dumps(analysis1, indent=2)}
-
-CONTRACT 2:
-{json.dumps(analysis2, indent=2)}
-"""
-
-    try:
-        response = client.models.generate_content(
-    model=GEMINI_MODEL,
-    contents=prompt)
-        text = response.text
-
-        cleaned = clean_json_response(response.text)
-        return json.loads(cleaned)
-    except Exception as e:
-        logger.error(f"Comparison error: {e}")
-        raise HTTPException(status_code=500, detail="Contract comparison failed")
-
-def extract_specific_clauses(text: str, clause_types: List[str]) -> dict:
-    """Extract specific clause types from contract"""
-    prompt = f"""Extract and analyze these specific clause types from the contract: {', '.join(clause_types)}
-
-Return ONLY JSON:
-
-{{
-  "clauses_found": [
-    {{
-      "type": "termination|payment|confidentiality|etc",
-      "text": "exact clause text",
-      "analysis": "what this clause means",
-      "risk_level": "LOW|MEDIUM|HIGH|CRITICAL"
-    }}
-  ],
-  "missing_clauses": ["clause type 1"]
-}}
-
 CONTRACT TEXT:
 {text[:15000]}
 """
