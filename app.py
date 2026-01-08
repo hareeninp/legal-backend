@@ -1,4 +1,3 @@
-
 """
 Legal Contract Intelligence API - Complete Version with OCR & Downloads
 FastAPI backend for AI-powered contract analysis with full features
@@ -23,8 +22,7 @@ from dotenv import load_dotenv
 from fastapi import FastAPI, HTTPException, UploadFile, File, Query, BackgroundTasks, Depends, Header
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse, FileResponse, StreamingResponse, Response
-from pydantic import BaseModel, Field
-from pydantic.functional_validators import field_validator
+from pydantic import BaseModel, Field, validator
 from typing import Optional, Dict, Any
 from google import genai
 from PyPDF2 import PdfReader
@@ -112,7 +110,7 @@ app = FastAPI(
 app.add_middleware(
     CORSMiddleware,
     allow_origins=[
-        "https://signature-gap-frontend-bhtzcmog5-nehas-projects-f3c149cb.vercel.app/",
+        "https://signature-gap-frontend-e9gvoko95-nehas-projects-f3c149cb.vercel.app/",
         "http://localhost:3000",
     ],
     allow_credentials=True,
@@ -124,18 +122,20 @@ app.add_middleware(
 class DownloadOptions(BaseModel):
     audio: str = ""
 
-class AnalyzeRequest(BaseModel):
-    text: str = Field(..., min_length=50)
-    contract_name: Optional[str] = Field("Contract")
-    user_role: Optional[str] = Field("general")
 
-    @field_validator("text")
-    @classmethod
+
+
+class AnalyzeRequest(BaseModel):
+    text: str = Field(..., min_length=50, description="Contract text to analyze")
+    contract_name: Optional[str] = Field("Contract", description="Name of the contract")
+    user_role: Optional[str] = Field("general", description="User role: employee, employer, freelancer, tenant, landlord")
+    
+    @validator('text')
     def validate_text(cls, v):
         if len(v.strip()) < 50:
-            raise ValueError("Contract text must be at least 50 characters")
+            raise ValueError('Contract text must be at least 50 characters')
         return v
-
+    
     class Config:
         json_schema_extra = {
             "example": {
@@ -184,6 +184,7 @@ class OCRResult(BaseModel):
     word_count: int
 
 class DocumentClarityCheckResponse(BaseModel):
+    """Response model for document clarity check"""
     success: bool
     is_clear: bool
     confidence: float
@@ -213,12 +214,12 @@ audio_cache: Dict[str, str] = {}
 
 # ====================== UTILITY FUNCTIONS ======================
 def generate_analysis_id(text: str, contract_name: str) -> str:
- 
+    """Generate unique analysis ID"""
     content = f"{text[:100]}{contract_name}{datetime.now().isoformat()}"
     return hashlib.md5(content.encode()).hexdigest()[:16]
 
 def mask_sensitive_data(text: str) -> str:
-    
+    """Mask PII data using regex patterns"""
     patterns = [
         (r"\b\d{10}\b", "[PHONE]"),
         (r"\+91[\s-]?\d{10}", "[PHONE]"),
@@ -236,7 +237,7 @@ def mask_sensitive_data(text: str) -> str:
     return text
 
 def clean_json_response(text: str) -> str:
-  
+    """Clean JSON response from Gemini"""
     text = text.strip()
     if text.startswith("```json"):
         text = text[7:]
@@ -247,7 +248,7 @@ def clean_json_response(text: str) -> str:
     return text.strip()
 
 def assess_ocr_quality(confidence: float) -> Tuple[OCRQuality, bool, str]:
-   
+    """Assess OCR quality and determine if reupload is needed"""
     if confidence >= 0.95:
         return OCRQuality.EXCELLENT, False, "Excellent text extraction quality - document is clear and readable"
     elif confidence >= 0.85:
@@ -260,7 +261,7 @@ def assess_ocr_quality(confidence: float) -> Tuple[OCRQuality, bool, str]:
         return OCRQuality.FAILED, True, "Text extraction failed. Document is not clear enough - please upload a better quality document"
 
 def generate_clarity_suggestions(confidence: float, word_count: int, page_count: int) -> List[str]:
-   
+    """Generate specific suggestions for improving document clarity"""
     suggestions = []
     
     if confidence < OCR_CONFIDENCE_THRESHOLD:
@@ -281,7 +282,7 @@ def generate_clarity_suggestions(confidence: float, word_count: int, page_count:
 
 # ====================== OCR FUNCTIONS ======================
 def extract_text_with_pypdf(file_content: bytes) -> Tuple[str, float]:
-
+    """Extract text using PyPDF2"""
     try:
         pdf_file = io.BytesIO(file_content)
         reader = PdfReader(pdf_file)
@@ -310,7 +311,7 @@ def extract_text_with_pypdf(file_content: bytes) -> Tuple[str, float]:
         return "", 0.0
 
 def extract_text_with_pymupdf(file_content: bytes) -> Tuple[str, float]:
-  
+    """Extract text using PyMuPDF (better quality)"""
     try:
         pdf_document = fitz.open(stream=file_content, filetype="pdf")
         text = ""
@@ -342,7 +343,7 @@ def extract_text_with_pymupdf(file_content: bytes) -> Tuple[str, float]:
         return "", 0.0
 
 def extract_text_with_google_ocr(file_content: bytes) -> Tuple[str, float]:
-   
+    """Extract text using Google Cloud Vision OCR"""
     if not vision_client:
         logger.warning("Google Cloud Vision not configured, falling back to PyMuPDF")
         return extract_text_with_pymupdf(file_content)
@@ -395,7 +396,9 @@ def extract_text_with_google_ocr(file_content: bytes) -> Tuple[str, float]:
         return extract_text_with_pymupdf(file_content)
 
 def extract_text_from_pdf(file_content: bytes, use_ocr: bool = True) -> OCRResult:
-    
+    """
+    Extract text from PDF with quality assessment
+    """
     try:
         # Try PyMuPDF first (fastest)
         text, confidence = extract_text_with_pymupdf(file_content)
@@ -456,6 +459,11 @@ def extract_text_from_pdf(file_content: bytes, use_ocr: bool = True) -> OCRResul
 async def check_document_clarity(
     file: UploadFile = File(..., description="PDF or image file to check for clarity")
 ):
+    """
+    Check if uploaded document is clear enough for processing.
+    This endpoint should be called BEFORE attempting full analysis.
+    Returns detailed clarity assessment and suggestions if document needs to be re-uploaded.
+    """
     try:
         # Validate file type
         if not file.content_type or not file.content_type.startswith(('application/pdf', 'image/')):
@@ -534,7 +542,10 @@ async def upload_and_extract(
     file: UploadFile = File(...),
     force_process: bool = Query(False, description="Force processing even if quality is poor")
 ):
- 
+    """
+    Upload PDF/image and extract text with quality check.
+    If document quality is poor and force_process=False, returns error requesting re-upload.
+    """
     try:
         # Validate file
         if not file.content_type or not file.content_type.startswith(('application/pdf', 'image/')):
@@ -601,7 +612,7 @@ async def upload_and_extract(
 
 # ====================== DOWNLOAD GENERATION FUNCTIONS ======================
 def generate_txt_report(analysis: dict, questions: list, contract_name: str) -> str:
-
+    """Generate plain text report"""
     report = f"""
 ================================================================================
 LEGAL CONTRACT ANALYSIS REPORT
@@ -764,55 +775,52 @@ def generate_markdown_report(analysis: dict, questions: list, contract_name: str
         report += f"- {protection}\n"
     
     report += "\n---\n\n## 💡 Recommendations\n\n"
+    # Concerns
+    story.append(Paragraph("Concerns", heading_style))
+    for concern in analysis.get('concerns', []):
+        if isinstance(concern, dict):
+            severity = concern.get('severity', 'MEDIUM')
+            story.append(Paragraph(f"<b>[{severity}]</b> {concern.get('concern', '')}", normal_style))
+            story.append(Paragraph(f"<i>Impact: {concern.get('impact', 'Unknown')}</i>", normal_style))
+    
+    # Red Flags
+    story.append(Paragraph("Red Flags", heading_style))
+    for flag in analysis.get('red_flags', []):
+        story.append(Paragraph(f"⚠ {flag}", normal_style))
+    
+    # Recommendations
+    story.append(Paragraph("Recommendations", heading_style))
     for rec in analysis.get('recommendations', []):
         if isinstance(rec, dict):
-            priority_emoji = {"HIGH": "🔴", "MEDIUM": "🟡", "LOW": "🟢"}.get(rec.get('priority', ''), '⚪')
-            report += f"### {priority_emoji} {rec.get('action', '')}\n"
-            report += f"**Reason:** {rec.get('reason', '')}\n\n"
+            priority = rec.get('priority', 'MEDIUM')
+            story.append(Paragraph(f"<b>[{priority}]</b> {rec.get('action', '')}", normal_style))
     
+    # Questions
     if questions:
-        report += "---\n\n## ❓ Questions to Ask Before Signing\n\n"
+        story.append(Paragraph("Questions to Ask Before Signing", heading_style))
         for i, q in enumerate(questions, 1):
             if isinstance(q, dict):
-                priority_emoji = {"HIGH": "🔴", "MEDIUM": "🟡", "LOW": "🟢"}.get(q.get('priority', ''), '⚪')
-                report += f"{i}. {priority_emoji} **{q.get('question', '')}**\n"
-                report += f"   - Category: {q.get('category', 'general')}\n\n"
+                story.append(Paragraph(f"{i}. {q.get('question', '')}", normal_style))
             else:
-                report += f"{i}. {q}\n\n"
+                story.append(Paragraph(f"{i}. {q}", normal_style))
     
-    report += """---
-
-> **Disclaimer:** This analysis is AI-generated and should not be considered legal advice. Please consult a qualified legal professional for important decisions.
-"""
-    
-    return report
-
-def generate_pdf_report(analysis: dict, questions: list, contract_name: str) -> bytes:
-    """Generate PDF report"""
-    buffer = io.BytesIO()
-    doc = SimpleDocTemplate(buffer, pagesize=A4)
-    styles = getSampleStyleSheet()
-    story = []
-    
-    story.append(Paragraph("Legal Contract Analysis Report", styles['Title']))
-    story.append(Paragraph(f"Contract: {contract_name}", styles['Normal']))
-    story.append(Paragraph(f"Risk Level: {analysis.get('risk_level', 'Unknown')}", styles['Normal']))
-    story.append(Paragraph(f"Risk Score: {analysis.get('risk_score', 'N/A')}/10", styles['Normal']))
-    
-    if questions:
-        story.append(Paragraph("Questions to Ask Before Signing:", styles['Heading2']))
-        for i, q in enumerate(questions, 1):
-            q_text = q.get('question', q) if isinstance(q, dict) else q
-            story.append(Paragraph(f"{i}. {q_text}", styles['Normal']))
+    # Disclaimer
+    story.append(Spacer(1, 30))
+    disclaimer_style = ParagraphStyle(
+        'Disclaimer',
+        parent=styles['Normal'],
+        fontSize=8,
+        textColor=colors.gray
+    )
+    story.append(Paragraph(
+        "<i>Disclaimer: This analysis is AI-generated and should not be considered legal advice. "
+        "Please consult a qualified legal professional for important decisions.</i>",
+        disclaimer_style
+    ))
     
     doc.build(story)
     buffer.seek(0)
     return buffer.getvalue()
-
-    
-     
-      
-    
 
 # ====================== GEMINI AI FUNCTIONS ======================
 def analyze_contract_clause(text: str, contract_name: str = "Contract", user_role: str = "general") -> dict:
@@ -859,7 +867,7 @@ Return ONLY valid JSON in this format:
   ],
   "red_flags": ["Critical issue 1", "Critical issue 2"]
 }}
-"""
+
 Risk Score Scale:
 1-3: LOW RISK - Fair terms, standard clauses
 4-6: MEDIUM RISK - Some unfavorable terms, negotiable
@@ -1247,6 +1255,16 @@ async def upload_and_analyze(
     force_reupload: bool = Query(False, description="Force analysis even with low OCR quality"),
     background_tasks: BackgroundTasks = None
 ):
+    """
+    Upload PDF and analyze contract with OCR quality assessment
+    
+    - **file**: PDF file to upload (max 10MB)
+    - **contract_name**: Optional contract name
+    - **user_role**: User's role for analysis
+    - **language**: Target language
+    - **generate_audio**: Generate audio summary
+    - **force_reupload**: Force analysis even with low OCR quality
+    """
     try:
         # Validate file type
         if not file.filename.lower().endswith('.pdf'):
@@ -1798,7 +1816,9 @@ async def get_analysis(analysis_id: str):
 
 @app.delete("/api/analysis/{analysis_id}")
 async def delete_analysis(analysis_id: str):
-    
+    """
+    Delete a cached analysis
+    """
     if analysis_id in analysis_cache:
         del analysis_cache[analysis_id]
     
@@ -1815,7 +1835,9 @@ async def delete_analysis(analysis_id: str):
 
 @app.delete("/api/cleanup")
 async def manual_cleanup(background_tasks: BackgroundTasks = None):
-  
+    """
+    Manually trigger cleanup of temporary files and old cache
+    """
     try:
         cleaned_files = 0
         cleaned_cache = 0
@@ -1862,6 +1884,7 @@ async def manual_cleanup(background_tasks: BackgroundTasks = None):
 # ====================== ERROR HANDLERS ======================
 @app.exception_handler(HTTPException)
 async def http_exception_handler(request, exc):
+    """Custom HTTP exception handler"""
     return JSONResponse(
         status_code=exc.status_code,
         content={
@@ -1873,6 +1896,7 @@ async def http_exception_handler(request, exc):
 
 @app.exception_handler(Exception)
 async def general_exception_handler(request, exc):
+    """General exception handler for unhandled errors"""
     logger.error(f"Unhandled exception: {exc}", exc_info=True)
     return JSONResponse(
         status_code=500,
@@ -1887,6 +1911,7 @@ async def general_exception_handler(request, exc):
 # ====================== STARTUP & SHUTDOWN EVENTS ======================
 @app.on_event("startup")
 async def startup_event():
+    """Initialize resources on startup"""
     os.makedirs(TEMP_DIR, exist_ok=True)
     os.makedirs(UPLOAD_DIR, exist_ok=True)
     os.makedirs(DOWNLOADS_DIR, exist_ok=True)
@@ -1902,8 +1927,7 @@ async def startup_event():
 
 @app.on_event("shutdown")
 async def shutdown_event():
-    # Cleanup resources on shutdown
-
+    """Cleanup resources on shutdown"""
     try:
         # Clean up temp files
         if os.path.exists(TEMP_DIR):
@@ -1926,7 +1950,7 @@ if __name__ == "__main__":
     debug = os.getenv("DEBUG", "false").lower() == "true"
     
     uvicorn.run(
-        "app:app",
+        "main:app",
         host=host,
         port=port,
         reload=debug,
