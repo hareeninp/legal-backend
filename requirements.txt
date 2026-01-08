@@ -6,6 +6,7 @@ requests
 
 # Gemini (NEW SDK)
 google-genai
+python-multipart
 
 # PDF handling
 PyPDF2
