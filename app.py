@@ -604,7 +604,7 @@ def generate_pdf_report(analysis: Dict[str, Any], questions: List[Any], contract
         textColor=colors.HexColor('#1a1a1a'),
         spaceAfter=30,
     )
-    story.append(Paragraph(("Contract Analysis Report", title_style)))
+    story.append(Paragraph("Contract Analysis Report", title_style))
     story.append(Spacer(1, 12))
     
     # Metadata
