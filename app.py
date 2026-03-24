@@ -104,7 +104,7 @@ app = FastAPI(
 app.add_middleware(
     CORSMiddleware,
     allow_origins=[
-        "https://signature-gap-frontend-e9gvoko95-nehas-projects-f3c149cb.vercel.app/",
+        "https://signature-gap-frontend-e9gvoko95-nehas-projects-f3c149cb.vercel.app",
         "http://localhost:3000",
     ],
     allow_credentials=True,
@@ -425,17 +425,68 @@ def generate_questions(analysis: Dict[str, Any]) -> List[Dict[str, Any]]:
     })
     
     return questions
-
 def compare_contracts(analysis1: Dict[str, Any], analysis2: Dict[str, Any]) -> Dict[str, Any]:
     """Compare two contract analyses"""
+    
+    # Safely convert risk_score to float (handles string, int, float, or missing)
+    try:
+        score1 = float(analysis1.get("risk_score") or 10)
+    except (ValueError, TypeError):
+        score1 = 10.0
+
+    try:
+        score2 = float(analysis2.get("risk_score") or 10)
+    except (ValueError, TypeError):
+        score2 = 10.0
+
+    # Count red flags as a tiebreaker
+    red_flags1 = len(analysis1.get("red_flags") or [])
+    red_flags2 = len(analysis2.get("red_flags") or [])
+
+    # Determine better contract
+    if score1 < score2:
+        better = 1
+    elif score2 < score1:
+        better = 2
+    else:
+        # Scores are equal — use red flag count as tiebreaker
+        better = 1 if red_flags1 <= red_flags2 else 2
+
+    # Build a meaningful reasoning string instead of a hardcoded one
+    reasoning_parts = []
+    if score1 != score2:
+        reasoning_parts.append(
+            f"Contract 1 has a risk score of {score1}/10 vs Contract 2's {score2}/10."
+        )
+    else:
+        reasoning_parts.append(
+            f"Both contracts have the same risk score of {score1}/10."
+        )
+
+    if red_flags1 != red_flags2:
+        reasoning_parts.append(
+            f"Contract 1 has {red_flags1} red flag(s) vs Contract 2's {red_flags2}."
+        )
+
+    reasoning = " ".join(reasoning_parts)
+
+    final_advice = (
+        f"Contract {better} is safer overall with a lower risk score "
+        f"and fewer red flags. Review all recommendations before signing."
+    )
+
     return {
-        "better_contract": 1 if analysis1.get("risk_score", 10) < analysis2.get("risk_score", 10) else 2,
+        "better_contract": better,
         "risk_comparison": {
-            "contract1": analysis1.get("risk_score", 0),
-            "contract2": analysis2.get("risk_score", 0)
+            "contract1": score1,
+            "contract2": score2
         },
-        "reasoning": "Comparison based on risk scores and identified red flags",
-        "final_advice": "Choose the contract with lower risk score and fewer red flags"
+        "red_flags_comparison": {
+            "contract1": red_flags1,
+            "contract2": red_flags2
+        },
+        "reasoning": reasoning,
+        "final_advice": final_advice
     }
 
 def extract_specific_clauses(text: str, clause_types: List[str]) -> Dict[str, Any]:
