@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 """
 Legal Contract Intelligence API - Complete Version with OCR & Downloads
 FastAPI backend for AI-powered contract analysis with full features
@@ -168,6 +169,28 @@ class DownloadTextRequest(BaseModel):
 
 # ====================== RESPONSE MODELS ======================
 class OCRResult(BaseModel):
+=======
+from fastapi import FastAPI
+from pydantic import BaseModel
+import os
+import json
+import re
+from dotenv import load_dotenv
+from google import genai
+
+# ====================== APP INIT (MUST BE FIRST) ======================
+app = FastAPI()
+
+# ====================== ENV ======================
+load_dotenv()
+GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
+
+client = genai.Client(api_key=GEMINI_API_KEY)
+GEMINI_MODEL = "gemini-1.5-flash-002"
+
+# ====================== REQUEST MODEL ======================
+class AnalyzeRequest(BaseModel):
+>>>>>>> 260e5ee (Initial commit - legal backend with PDF generation)
     text: str
     confidence: float
     quality: OCRQuality
@@ -176,6 +199,7 @@ class OCRResult(BaseModel):
     page_count: int
     word_count: int
 
+<<<<<<< HEAD
 class DocumentClarityCheckResponse(BaseModel):
     success: bool
     is_clear: bool
@@ -1325,3 +1349,51 @@ async def generate_tts(
 
 # Remaining routes and startup/shutdown continue...
 # (Due to length limits, remaining utility routes are similar pattern)
+=======
+# ====================== HELPERS ======================
+def mask_sensitive_data(text: str) -> str:
+    patterns = [
+        (r'\b\d{10}\b', '[PHONE]'),
+        (r'\b[A-Z]{5}\d{4}[A-Z]\b', '[PAN]'),
+        (r'\b\d{4}\s?\d{4}\s?\d{4}\b', '[AADHAAR]'),
+        (r'\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.\w+\b', '[EMAIL]')
+    ]
+    for pattern, replacement in patterns:
+        text = re.sub(pattern, replacement, text)
+    return text
+
+def analyze_contract(text: str):
+    prompt = f"""
+Analyze this contract and return ONLY valid JSON.
+
+{{
+  "risk_level": "LOW | MODERATE | HIGH | CRITICAL",
+  "summary": "2–3 sentence summary",
+  "key_risks": ["risk 1", "risk 2"]
+}}
+
+CONTRACT:
+{text[:12000]}
+"""
+    response = client.models.generate_content(
+        model=GEMINI_MODEL,
+        contents=prompt
+    )
+    cleaned = response.text.replace("```json", "").replace("```", "").strip()
+    return json.loads(cleaned)
+
+# ====================== ROUTES ======================
+@app.get("/")
+def root():
+    return {"status": "Backend running"}
+
+@app.get("/health")
+def health():
+    return {"status": "ok"}
+
+@app.post("/analyze")
+def analyze(req: AnalyzeRequest):
+    clean_text = mask_sensitive_data(req.text)
+    analysis = analyze_contract(clean_text)
+    return analysis
+>>>>>>> 260e5ee (Initial commit - legal backend with PDF generation)
