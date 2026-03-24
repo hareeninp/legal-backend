@@ -54,6 +54,8 @@ MAX_FILE_SIZE = 10 * 1024 * 1024
 TEMP_DIR = "temp"
 UPLOAD_DIR = "uploads"
 DOWNLOADS_DIR = "downloads"
+for _dir in [TEMP_DIR, UPLOAD_DIR, DOWNLOADS_DIR]:
+    os.makedirs(_dir, exist_ok=True)
 OCR_CONFIDENCE_THRESHOLD = float(os.getenv("OCR_CONFIDENCE_THRESHOLD", "0.75"))
 
 if not GEMINI_API_KEY:
