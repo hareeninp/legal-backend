@@ -582,6 +582,13 @@ def generate_markdown_report(analysis: Dict[str, Any], questions: List[Any], con
     
     return report
 
+import html as html_module
+
+def safe_para(text: str) -> str:
+    """Escape special chars so ReportLab's XML parser doesn't crash"""
+    return html_module.escape(str(text or ""))
+
+
 def generate_pdf_report(analysis: Dict[str, Any], questions: List[Any], contract_name: str) -> bytes:
     """Generate PDF report"""
     buffer = io.BytesIO()
@@ -597,30 +604,30 @@ def generate_pdf_report(analysis: Dict[str, Any], questions: List[Any], contract
         textColor=colors.HexColor('#1a1a1a'),
         spaceAfter=30,
     )
-    story.append(Paragraph("Contract Analysis Report", title_style))
+    story.append(Paragraph(("Contract Analysis Report", title_style)))
     story.append(Spacer(1, 12))
     
     # Metadata
-    story.append(Paragraph(f"<b>Contract:</b> {contract_name}", styles['Normal']))
-    story.append(Paragraph(f"<b>Generated:</b> {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}", styles['Normal']))
+    story.append(Paragraph((f"<b>Contract:</b> {safe_para{contract_name}}", styles['Normal'])))
+    story.append(Paragraph(f"<b>Generated:</b> {safe_para{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}}", styles['Normal']))
     story.append(Spacer(1, 12))
     
     # Risk assessment
     story.append(Paragraph("Risk Assessment", styles['Heading2']))
-    story.append(Paragraph(f"<b>Risk Level:</b> {analysis.get('risk_level', 'unknown').upper()}", styles['Normal']))
-    story.append(Paragraph(f"<b>Risk Score:</b> {analysis.get('risk_score', 0)}/10", styles['Normal']))
+    story.append(Paragraph(f"<b>Risk Level:</b> {safe_para{analysis.get('risk_level', 'unknown').upper()}}", styles['Normal']))
+    story.append(Paragraph(f"<b>Risk Score:</b> {safe_para{analysis.get('risk_score', 0)}}/10", styles['Normal']))
     story.append(Spacer(1, 12))
     
     # Summary
     story.append(Paragraph("Summary", styles['Heading2']))
-    story.append(Paragraph(analysis.get('meaning', 'No analysis available'), styles['Normal']))
+    story.append(paragraph(safe_para(analysis.get('meaning', 'No analysis available'), styles['Normal'])))
     story.append(Spacer(1, 12))
     
     # Red flags
     if analysis.get('red_flags'):
         story.append(Paragraph("Red Flags", styles['Heading2']))
         for flag in analysis['red_flags']:
-            story.append(Paragraph(f"• {flag}", styles['Normal']))
+            story.append(Paragraph(f"•{safe_para(flag)}", styles['Normal']))
         story.append(Spacer(1, 12))
     
     # Questions
@@ -628,13 +635,12 @@ def generate_pdf_report(analysis: Dict[str, Any], questions: List[Any], contract
         story.append(Paragraph("Questions to Ask", styles['Heading2']))
         for i, q in enumerate(questions, 1):
             if isinstance(q, dict):
-                story.append(Paragraph(f"{i}. {q.get('question', '')}", styles['Normal']))
+                story.append(Paragraph(f"{i}.{safe_para (q.get('question', ''))}", styles['Normal']))
         story.append(Spacer(1, 12))
     
     doc.build(story)
     buffer.seek(0)
     return buffer.read()
-
 # ====================== SARVAM AI FUNCTIONS ======================
 def translate_text(text: str, target_language: str) -> str:
     """Translate text using Sarvam AI"""
