@@ -211,7 +211,7 @@ def mask_sensitive_data(text: str) -> str:
         (r"\b\d{10}\b", "[PHONE]"),
         (r"\+91[\s-]?\d{10}", "[PHONE]"),
         (r"\b[A-Z]{5}\d{4}[A-Z]\b", "[PAN]"),
-        (r"\b\d{4}\s?\d{4}\s?\d{4}\b", "[AADHAAR]"),
+        (r"\b\d{4}[\s-]\d{4}[\s-]\d{4}\b", "[AADHAAR]"),
         (r"\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.\w+\b", "[EMAIL]"),
         (r"\b\d{4}[\s-]?\d{4}[\s-]?\d{4}[\s-]?\d{4}\b", "[CARD]"),
         (r"\b[A-Z]{2}\d{2}[A-Z0-9]{13,16}\b", "[IBAN]"),
