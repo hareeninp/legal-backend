@@ -1,0 +1,20 @@
+fastapi
+uvicorn
+python-dotenv
+requests
+
+
+# Gemini (NEW SDK)
+google-genai
+python-multipart
+
+# PDF handling
+PyPDF2
+PyMuPDF
+
+# Google Cloud Vision OCR
+google-cloud-vision
+google-auth
+
+# PDF report generation
+reportlab
