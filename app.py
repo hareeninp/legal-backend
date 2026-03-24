@@ -608,8 +608,8 @@ def generate_pdf_report(analysis: Dict[str, Any], questions: List[Any], contract
     story.append(Spacer(1, 12))
     
     # Metadata
-    story.append(Paragraph((f"<b>Contract:</b> {safe_para{contract_name}}", styles['Normal'])))
-    story.append(Paragraph(f"<b>Generated:</b> {safe_para{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}}", styles['Normal']))
+    story.append(Paragraph(f"<b>Contract:</b> {safe_para(contract_name)}", styles['Normal']))
+    story.append(Paragraph(f"<b>Generated:</b> {safe_para(datetime.now().strftime('%Y-%m-%d %H:%M:%S'))}", styles['Normal']))
     story.append(Spacer(1, 12))
     
     # Risk assessment
@@ -620,7 +620,7 @@ def generate_pdf_report(analysis: Dict[str, Any], questions: List[Any], contract
     
     # Summary
     story.append(Paragraph("Summary", styles['Heading2']))
-    story.append(paragraph(safe_para(analysis.get('meaning', 'No analysis available'), styles['Normal'])))
+    story.append(Paragraph(safe_para(analysis.get('meaning', 'No analysis available'), styles['Normal']))
     story.append(Spacer(1, 12))
     
     # Red flags
