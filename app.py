@@ -3,6 +3,10 @@ Legal Contract Intelligence API - Complete Version with OCR & Downloads
 FastAPI backend for AI-powered contract analysis with full features
 Enhanced with mandatory document clarity checking
 """
+
+import os
+import re
+import json
 import base64
 import logging
 import shutil
@@ -14,10 +18,12 @@ from pathlib import Path
 from enum import Enum
 
 import requests
-import HTTPException, UploadFile, File, Query, BackgroundTasks, Depends, Header
+from dotenv import load_dotenv
+from fastapi import FastAPI, HTTPException, UploadFile, File, Query, BackgroundTasks, Depends, Header
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse, FileResponse, StreamingResponse, Response
-import Field, validator
+from pydantic import BaseModel, Field, validator
+from google import genai
 from PyPDF2 import PdfReader
 from google.cloud import vision
 from google.oauth2 import service_account
@@ -162,7 +168,6 @@ class DownloadTextRequest(BaseModel):
 
 #  RESPONSE MODELS 
 class OCRResult(BaseModel):
-#  REQUEST MODEL 
     text: str
     confidence: float
     quality: OCRQuality
