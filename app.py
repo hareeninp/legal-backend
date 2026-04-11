@@ -638,13 +638,13 @@ def generate_pdf_report(analysis: Dict[str, Any], questions: List[Any], contract
     
     # Risk assessment
     story.append(Paragraph("Risk Assessment", styles['Heading2']))
-    story.append(Paragraph(f"<b>Risk Level:</b> {safe_para{analysis.get('risk_level', 'unknown').upper()}}", styles['Normal']))
-    story.append(Paragraph(f"<b>Risk Score:</b> {safe_para{analysis.get('risk_score', 0)}}/10", styles['Normal']))
+    story.append(Paragraph(f"<b>Risk Level:</b> {safe_para(analysis.get('risk_level', 'unknown').upper())}", styles['Normal']))
+    story.append(Paragraph(f"<b>Risk Score:</b> {safe_para(analysis.get('risk_score', 0))}/10", styles['Normal']))
     story.append(Spacer(1, 12))
     
     # Summary
     story.append(Paragraph("Summary", styles['Heading2']))
-    story.append(Paragraph(safe_para(analysis.get('meaning', 'No analysis available'), styles['Normal']))
+    story.append(Paragraph(safe_para(analysis.get('meaning', 'No analysis available')), styles['Normal']))
     story.append(Spacer(1, 12))
     
     # Red flags
