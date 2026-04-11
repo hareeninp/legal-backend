@@ -1,13 +1,8 @@
-<<<<<<< HEAD
 """
 Legal Contract Intelligence API - Complete Version with OCR & Downloads
 FastAPI backend for AI-powered contract analysis with full features
 Enhanced with mandatory document clarity checking
 """
-
-import os
-import re
-import json
 import base64
 import logging
 import shutil
@@ -19,12 +14,10 @@ from pathlib import Path
 from enum import Enum
 
 import requests
-from dotenv import load_dotenv
-from fastapi import FastAPI, HTTPException, UploadFile, File, Query, BackgroundTasks, Depends, Header
+import HTTPException, UploadFile, File, Query, BackgroundTasks, Depends, Header
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse, FileResponse, StreamingResponse, Response
-from pydantic import BaseModel, Field, validator
-from google import genai
+import Field, validator
 from PyPDF2 import PdfReader
 from google.cloud import vision
 from google.oauth2 import service_account
@@ -36,14 +29,14 @@ from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 from reportlab.lib import colors
 from reportlab.lib.units import inch
 
-# ====================== LOGGING ======================
+#  LOGGING 
 logging.basicConfig(
     level=logging.INFO,
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
 )
 logger = logging.getLogger(__name__)
 
-# ====================== ENVIRONMENT ======================
+#  ENVIRONMENT 
 load_dotenv()
 
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
@@ -81,7 +74,7 @@ try:
 except Exception as e:
     logger.warning(f"Google Cloud Vision not configured: {e}")
 
-# ====================== ENUMS ======================
+#ENUMS 
 class DownloadFormat(str, Enum):
     TXT = "txt"
     JSON = "json"
@@ -95,7 +88,7 @@ class OCRQuality(str, Enum):
     POOR = "poor"
     FAILED = "failed"
 
-# ====================== FASTAPI APP ======================
+#  FASTAPI APP 
 app = FastAPI(
     title="Legal Contract Intelligence API",
     description="AI-powered contract analysis with multi-language support, OCR, and download capabilities",
@@ -115,7 +108,7 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# ====================== REQUEST MODELS ======================
+# REQUEST MODELS 
 class DownloadOptions(BaseModel):
     audio: str = ""
 
@@ -167,30 +160,9 @@ class DownloadTextRequest(BaseModel):
     format: DownloadFormat = Field(DownloadFormat.PDF, description="Download format")
     include_questions: bool = Field(True, description="Include questions in download")
 
-# ====================== RESPONSE MODELS ======================
+#  RESPONSE MODELS 
 class OCRResult(BaseModel):
-=======
-from fastapi import FastAPI
-from pydantic import BaseModel
-import os
-import json
-import re
-from dotenv import load_dotenv
-from google import genai
-
-# ====================== APP INIT (MUST BE FIRST) ======================
-app = FastAPI()
-
-# ====================== ENV ======================
-load_dotenv()
-GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
-
-client = genai.Client(api_key=GEMINI_API_KEY)
-GEMINI_MODEL = "gemini-1.5-flash-002"
-
-# ====================== REQUEST MODEL ======================
-class AnalyzeRequest(BaseModel):
->>>>>>> 260e5ee (Initial commit - legal backend with PDF generation)
+#  REQUEST MODEL 
     text: str
     confidence: float
     quality: OCRQuality
@@ -198,8 +170,6 @@ class AnalyzeRequest(BaseModel):
     message: str
     page_count: int
     word_count: int
-
-<<<<<<< HEAD
 class DocumentClarityCheckResponse(BaseModel):
     success: bool
     is_clear: bool
@@ -659,7 +629,7 @@ def generate_pdf_report(analysis: Dict[str, Any], questions: List[Any], contract
         story.append(Paragraph("Questions to Ask", styles['Heading2']))
         for i, q in enumerate(questions, 1):
             if isinstance(q, dict):
-                story.append(Paragraph(f"{i}.{safe_para (q.get('question', ''))}", styles['Normal']))
+                story.append(Paragraph(f"{i}. {safe_para(q.get('question', ''))}", styles['Normal']))
         story.append(Spacer(1, 12))
     
     doc.build(story)
@@ -1346,54 +1316,3 @@ async def generate_tts(
             status_code=500,
             detail=f"Audio generation failed: {str(e)}"
         )
-
-# Remaining routes and startup/shutdown continue...
-# (Due to length limits, remaining utility routes are similar pattern)
-=======
-# ====================== HELPERS ======================
-def mask_sensitive_data(text: str) -> str:
-    patterns = [
-        (r'\b\d{10}\b', '[PHONE]'),
-        (r'\b[A-Z]{5}\d{4}[A-Z]\b', '[PAN]'),
-        (r'\b\d{4}\s?\d{4}\s?\d{4}\b', '[AADHAAR]'),
-        (r'\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.\w+\b', '[EMAIL]')
-    ]
-    for pattern, replacement in patterns:
-        text = re.sub(pattern, replacement, text)
-    return text
-
-def analyze_contract(text: str):
-    prompt = f"""
-Analyze this contract and return ONLY valid JSON.
-
-{{
-  "risk_level": "LOW | MODERATE | HIGH | CRITICAL",
-  "summary": "2–3 sentence summary",
-  "key_risks": ["risk 1", "risk 2"]
-}}
-
-CONTRACT:
-{text[:12000]}
-"""
-    response = client.models.generate_content(
-        model=GEMINI_MODEL,
-        contents=prompt
-    )
-    cleaned = response.text.replace("```json", "").replace("```", "").strip()
-    return json.loads(cleaned)
-
-# ====================== ROUTES ======================
-@app.get("/")
-def root():
-    return {"status": "Backend running"}
-
-@app.get("/health")
-def health():
-    return {"status": "ok"}
-
-@app.post("/analyze")
-def analyze(req: AnalyzeRequest):
-    clean_text = mask_sensitive_data(req.text)
-    analysis = analyze_contract(clean_text)
-    return analysis
->>>>>>> 260e5ee (Initial commit - legal backend with PDF generation)
