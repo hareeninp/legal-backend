@@ -1,27 +1,204 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>LexAI Contract Analyzer</title>
-    <link rel="stylesheet" href="style.css">
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>LexAI Contract Analyzer</title>
+
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+      font-family: Arial, sans-serif;
+    }
+
+    body {
+      background: #f4f6f9;
+      padding: 30px;
+    }
+
+    .container {
+      max-width: 1100px;
+      margin: auto;
+      background: white;
+      border-radius: 12px;
+      padding: 25px;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+    }
+
+    h1 {
+      text-align: center;
+      margin-bottom: 20px;
+      color: #1f2937;
+    }
+
+    textarea {
+      width: 100%;
+      min-height: 180px;
+      padding: 12px;
+      border: 1px solid #ccc;
+      border-radius: 8px;
+      margin-bottom: 15px;
+      font-size: 15px;
+    }
+
+    select, button {
+      padding: 10px 14px;
+      border-radius: 8px;
+      border: 1px solid #ccc;
+      margin-right: 10px;
+      margin-bottom: 10px;
+      font-size: 14px;
+    }
+
+    button {
+      background: #2563eb;
+      color: white;
+      border: none;
+      cursor: pointer;
+    }
+
+    button:hover {
+      background: #1d4ed8;
+    }
+
+    .button-group {
+      margin-bottom: 20px;
+    }
+
+    .result {
+      background: #111827;
+      color: #10b981;
+      padding: 15px;
+      border-radius: 8px;
+      white-space: pre-wrap;
+      overflow-x: auto;
+      min-height: 150px;
+    }
+  </style>
 </head>
 <body>
-    <div class="container">
-        <h1>LexAI Contract Analyzer</h1>
+  <div class="container">
+    <h1>LexAI Contract Analyzer</h1>
 
-        <textarea id="contractText" placeholder="Paste contract text here..."></textarea>
+    <textarea id="contractText" placeholder="Paste your contract text here..."></textarea>
 
-        <div class="buttons">
-            <button onclick="analyzeContract()">Analyze</button>
-            <button onclick="translateContract()">Translate</button>
-            <button onclick="generateTTS()">Generate Audio</button>
-        </div>
+    <select id="languageSelect">
+      <option value="hi-IN">Hindi</option>
+      <option value="ta-IN">Tamil</option>
+      <option value="te-IN">Telugu</option>
+      <option value="kn-IN">Kannada</option>
+      <option value="ml-IN">Malayalam</option>
+      <option value="mr-IN">Marathi</option>
+      <option value="bn-IN">Bengali</option>
+      <option value="gu-IN">Gujarati</option>
+      <option value="pa-IN">Punjabi</option>
+      <option value="od-IN">Odia</option>
+    </select>
 
-        <h2>Result</h2>
-        <pre id="result"></pre>
+    <div class="button-group">
+      <button onclick="analyzeContract()">Analyze</button>
+      <button onclick="translateContract()">Translate</button>
+      <button onclick="generateTTS()">Generate Audio</button>
     </div>
 
-    <script src="script.js"></script>
+    <h2>Result</h2>
+    <div class="result" id="result">Results will appear here...</div>
+  </div>
+
+  <script>
+    const API = 'https://legal-backend-1-cnii.onrender.com';
+
+    async function analyzeContract() {
+      const text = document.getElementById('contractText').value;
+      const selectedLanguage = document.getElementById('languageSelect').value;
+
+      if (!text.trim()) {
+        alert('Please enter contract text');
+        return;
+      }
+
+      document.getElementById('result').textContent = 'Analyzing...';
+
+      try {
+        const response = await fetch(`${API}/api/analyze`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({
+            text: text,
+            target_language: selectedLanguage
+          })
+        });
+
+        const data = await response.json();
+        document.getElementById('result').textContent = JSON.stringify(data, null, 2);
+      } catch (error) {
+        document.getElementById('result').textContent = 'Error: ' + error.message;
+      }
+    }
+
+    async function translateContract() {
+      const text = document.getElementById('contractText').value;
+      const selectedLanguage = document.getElementById('languageSelect').value;
+
+      if (!text.trim()) {
+        alert('Please enter text to translate');
+        return;
+      }
+
+      document.getElementById('result').textContent = 'Translating...';
+
+      try {
+        const response = await fetch(`${API}/api/translate`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({
+            text: text,
+            target_language: selectedLanguage
+          })
+        });
+
+        const data = await response.json();
+        document.getElementById('result').textContent = JSON.stringify(data, null, 2);
+      } catch (error) {
+        document.getElementById('result').textContent = 'Error: ' + error.message;
+      }
+    }
+
+    async function generateTTS() {
+      const text = document.getElementById('contractText').value;
+
+      if (!text.trim()) {
+        alert('Please enter text for audio generation');
+        return;
+      }
+
+      document.getElementById('result').textContent = 'Generating audio...';
+
+      try {
+        const response = await fetch(`${API}/api/tts`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({
+            text: text
+          })
+        });
+
+        const data = await response.json();
+        document.getElementById('result').textContent = JSON.stringify(data, null, 2);
+      } catch (error) {
+        document.getElementById('result').textContent = 'Error: ' + error.message;
+      }
+    }
+  </script>
 </body>
 </html>
+```
