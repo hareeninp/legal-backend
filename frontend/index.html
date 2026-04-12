@@ -1,0 +1,27 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>LexAI Contract Analyzer</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div class="container">
+        <h1>LexAI Contract Analyzer</h1>
+
+        <textarea id="contractText" placeholder="Paste contract text here..."></textarea>
+
+        <div class="buttons">
+            <button onclick="analyzeContract()">Analyze</button>
+            <button onclick="translateContract()">Translate</button>
+            <button onclick="generateTTS()">Generate Audio</button>
+        </div>
+
+        <h2>Result</h2>
+        <pre id="result"></pre>
+    </div>
+
+    <script src="script.js"></script>
+</body>
+</html>
